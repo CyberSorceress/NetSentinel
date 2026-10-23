@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Flow Sessions & ML Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="fa-solid fa-shuffle text-info me-2"></i>Network Flow & ML Anomaly Analysis</h3>
+        <p class="text-secondary small mb-0">Bidirectional 5-tuple conversations, statistical feature vectors, and Isolation Forest anomaly scoring.</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if anomaly_only %}
+        <a href="{{ url_for('flows_view', anomaly_only=0) }}" class="btn btn-sm btn-outline-secondary font-mono">
+            Show All Flows
+        </a>
+        {% else %}
+        <a href="{{ url_for('flows_view', anomaly_only=1) }}" class="btn btn-sm btn-outline-danger font-mono">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i> Filter Anomalies Only
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-cyber p-3">
+    {% if flows %}
+    <div class="table-responsive">
+        <table class="table table-cyber align-middle mb-0 font-mono" style="font-size: 0.8rem;">
+            <thead>
+                <tr class="text-secondary border-bottom border-dark-subtle">
+                    <th>FLOW CONVERSATION</th>
+                    <th>PROTO</th>
+                    <th>DURATION</th>
+                    <th>PACKETS</th>
+                    <th>BYTES</th>
+                    <th>RATE (PPS)</th>
+                    <th>STATE</th>
+                    <th>ANOMALY SCORE</th>
+                    <th>ML VERDICT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flow in flows %}
+                <tr {% if flow.is_anomaly %}class="border-start border-danger border-3"{% endif %}>
+                    <td>
+                        <span class="text-info fw-bold">{{ flow.src_ip }}:{{ flow.src_port }}</span>
+                        <i class="fa-solid fa-arrow-right-arrow-left text-secondary mx-1" style="font-size: 0.7rem;"></i>
+                        <span class="text-light">{{ flow.dst_ip }}:{{ flow.dst_port }}</span>
+                    </td>
+                    <td><span class="badge bg-dark border border-secondary">{{ flow.protocol }}</span></td>
+                    <td>{{ "%.2f"|format(flow.duration) }}s</td>
+                    <td>{{ flow.total_packets }} ({{ flow.fwd_packets }} &rarr; / {{ flow.bwd_packets }} &larr;)</td>
+                    <td>{{ flow.total_bytes }} B</td>
+                    <td>
+                        {% if flow.duration > 0 %}
+                            {{ "%.1f"|format(flow.total_packets / flow.duration) }}
+                        {% else %}
+                            {{ flow.total_packets }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if flow.flow_state == 'ESTABLISHED' %}bg-success-subtle text-success{% elif flow.flow_state == 'RESET' %}bg-danger-subtle text-danger{% elif flow.flow_state == 'HALF_OPEN' %}bg-warning-subtle text-warning{% else %}bg-secondary{% endif %}">
+                            {{ flow.flow_state }}
+                        </span>
+                    </td>
+                    <td style="min-width: 140px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1 bg-dark" style="height: 6px;">
+                                <div class="progress-bar {% if flow.anomaly_score > 0.7 %}bg-danger{% elif flow.anomaly_score > 0.4 %}bg-warning{% else %}bg-primary{% endif %}"
+                                     role="progressbar" style="width: {{ flow.anomaly_score * 100 }}%;"></div>
+                            </div>
+                            <span class="small font-mono text-secondary">{{ "%.2f"|format(flow.anomaly_score) }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if flow.is_anomaly %}
+                        <span class="badge bg-danger text-light"><i class="fa-solid fa-radiation me-1"></i> ANOMALY</span>
+                        {% else %}
+                        <span class="badge bg-success-subtle text-success"><i class="fa-solid fa-circle-check me-1"></i> NORMAL</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-secondary">
+        <i class="fa-solid fa-shuffle fs-2 mb-2 d-block"></i>
+        <p class="mb-0">No network flow records found.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

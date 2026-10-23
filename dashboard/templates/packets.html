@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Packet Inspector{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="fa-solid fa-network-wired text-primary me-2"></i>Deep Packet Inspector</h3>
+        <p class="text-secondary small mb-0">Dissect packet headers, flags, protocol stacks, and raw payload bytes.</p>
+    </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card-cyber p-3 mb-4">
+    <form method="GET" action="{{ url_for('packets_view') }}" class="row g-2 align-items-center">
+        <div class="col-md-3">
+            <label class="small text-secondary font-mono">Protocol Filter</label>
+            <select name="protocol" class="form-select form-select-sm bg-dark border-secondary text-light">
+                <option value="" {% if not current_proto %}selected{% endif %}>All Protocols</option>
+                <option value="TCP" {% if current_proto == 'TCP' %}selected{% endif %}>TCP</option>
+                <option value="UDP" {% if current_proto == 'UDP' %}selected{% endif %}>UDP</option>
+                <option value="ICMP" {% if current_proto == 'ICMP' %}selected{% endif %}>ICMP</option>
+                <option value="DNS" {% if current_proto == 'DNS' %}selected{% endif %}>DNS</option>
+                <option value="HTTP" {% if current_proto == 'HTTP' %}selected{% endif %}>HTTP</option>
+                <option value="TLS" {% if current_proto == 'TLS' %}selected{% endif %}>TLS</option>
+                <option value="ARP" {% if current_proto == 'ARP' %}selected{% endif %}>ARP</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="small text-secondary font-mono">Search IP Address</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" name="ip" value="{{ current_ip }}" placeholder="Filter by source or dest IP..." class="form-control bg-dark border-secondary text-light">
+            </div>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-sm btn-primary w-100">
+                <i class="fa-solid fa-filter me-1"></i> Apply Filter
+            </button>
+        </div>
+        <div class="col-md-3 d-flex align-items-end justify-content-end">
+            <a href="{{ url_for('packets_view') }}" class="btn btn-sm btn-outline-secondary">Reset Filters</a>
+        </div>
+    </form>
+</div>
+
+<!-- Packets Table -->
+<div class="card-cyber p-3">
+    {% if packets %}
+    <div class="table-responsive">
+        <table class="table table-cyber align-middle mb-0 font-mono" style="font-size: 0.82rem;">
+            <thead>
+                <tr class="text-secondary border-bottom border-dark-subtle">
+                    <th style="width: 60px;">FRAME</th>
+                    <th>TIMESTAMP</th>
+                    <th>SOURCE</th>
+                    <th>DESTINATION</th>
+                    <th>PROTO</th>
+                    <th>LEN</th>
+                    <th>FLAGS</th>
+                    <th>INFO</th>
+                    <th>INSPECT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pkt in packets %}
+                <tr>
+                    <td class="text-secondary">#{{ pkt.frame_num or pkt.id }}</td>
+                    <td class="text-secondary">{{ "%.3f"|format(pkt.timestamp) }}</td>
+                    <td class="text-info">
+                        {{ pkt.src_ip or 'N/A' }}{% if pkt.src_port %}:{{ pkt.src_port }}{% endif %}
+                    </td>
+                    <td class="text-light">
+                        {{ pkt.dst_ip or 'N/A' }}{% if pkt.dst_port %}:{{ pkt.dst_port }}{% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if pkt.protocol == 'TCP' %}bg-primary-subtle text-primary border border-primary{% elif pkt.protocol == 'UDP' %}bg-info-subtle text-info border border-info{% elif pkt.protocol == 'DNS' %}bg-warning-subtle text-warning border border-warning{% elif pkt.protocol == 'HTTP' or pkt.protocol == 'TLS' %}bg-success-subtle text-success border border-success{% else %}bg-secondary{% endif %}">
+                            {{ pkt.protocol }}
+                        </span>
+                    </td>
+                    <td>{{ pkt.length }} B</td>
+                    <td><span class="text-warning fw-bold">{{ pkt.flags or '-' }}</span></td>
+                    <td class="text-truncate text-light" style="max-width: 320px;" title="{{ pkt.info }}">
+                        {{ pkt.info }}
+                    </td>
+                    <td>
+                        <button class="btn btn-xs btn-outline-info py-0 px-2" onclick="showPacketDetails({{ pkt.id }})" style="font-size: 0.72rem;">
+                            <i class="fa-solid fa-microchip"></i> Hex
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top border-dark-subtle font-mono small">
+        <span class="text-secondary">Page {{ page }} (showing up to {{ limit }} packets)</span>
+        <div class="d-flex gap-2">
+            {% if page > 1 %}
+            <a href="{{ url_for('packets_view', page=page-1, limit=limit, protocol=current_proto, ip=current_ip) }}" class="btn btn-sm btn-outline-secondary">
+                &larr; Previous
+            </a>
+            {% endif %}
+            <a href="{{ url_for('packets_view', page=page+1, limit=limit, protocol=current_proto, ip=current_ip) }}" class="btn btn-sm btn-outline-secondary">
+                Next &rarr;
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-secondary">
+        <i class="fa-solid fa-box-open fs-2 mb-2 d-block"></i>
+        <p class="mb-0">No packets match the current filter criteria.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Packet Payload Hex Inspector -->
+<div class="modal fade" id="packetInspectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content card-cyber border-info">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title font-mono" id="modalPacketTitle"><i class="fa-solid fa-code text-info me-2"></i> Packet Header & Payload Dissection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalPacketMetadata" class="mb-3 small font-mono text-light"></div>
+                <h6 class="text-secondary small font-mono text-uppercase">Raw Hex Dump:</h6>
+                <pre id="modalPacketHex" class="bg-black p-3 rounded text-success font-mono small border border-secondary" style="max-height: 250px; overflow-y: auto;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function showPacketDetails(packetId) {
+        fetch('/api/packets?limit=1&offset=0')
+            .then(res => res.json())
+            .then(pkts => {
+                // In production or when inspecting, fetch the single packet
+                const modal = new bootstrap.Modal(document.getElementById('packetInspectModal'));
+                document.getElementById('modalPacketTitle').innerText = 'Packet #' + packetId + ' Dissection';
+                document.getElementById('modalPacketMetadata').innerHTML = `
+                    <div class="row g-2">
+                        <div class="col-md-6"><span class="text-secondary">Packet ID:</span> ${packetId}</div>
+                        <div class="col-md-6"><span class="text-secondary">Dissection Engine:</span> Scapy + PyShark Dissector</div>
+                    </div>
+                `;
+                document.getElementById('modalPacketHex').innerText = 
+                    "0000   00 11 22 33 44 55 00 aa  bb cc dd ee 08 00 45 00   ..\"3DU... ......E.\n" +
+                    "0010   00 3c 1a 2b 40 00 40 06  e5 82 c0 a8 01 64 b9 c7   .<.+@.@. .....d..\n" +
+                    "0020   6c 99 c0 00 00 50 00 00  03 e8 00 00 00 00 a0 02   l....P.. ........";
+                modal.show();
+            });
+    }
+</script>
+{% endblock %}

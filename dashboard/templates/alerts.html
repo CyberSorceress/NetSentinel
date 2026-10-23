@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Security Alerts{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Security Incident Alerts</h3>
+        <p class="text-secondary small mb-0">Rule-based signature detections and machine-learning anomaly triggers.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('export_alerts_csv') }}" class="btn btn-sm btn-outline-success font-mono">
+            <i class="fa-solid fa-file-csv me-1"></i> Export Alerts CSV
+        </a>
+    </div>
+</div>
+
+<!-- Severity Filters -->
+<div class="d-flex gap-2 mb-3">
+    <a href="{{ url_for('alerts_view') }}" class="btn btn-sm {% if current_severity == 'ALL' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">ALL</a>
+    <a href="{{ url_for('alerts_view', severity='CRITICAL') }}" class="btn btn-sm {% if current_severity == 'CRITICAL' %}btn-danger{% else %}btn-outline-danger{% endif %}">CRITICAL</a>
+    <a href="{{ url_for('alerts_view', severity='HIGH') }}" class="btn btn-sm {% if current_severity == 'HIGH' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %}">HIGH</a>
+    <a href="{{ url_for('alerts_view', severity='MEDIUM') }}" class="btn btn-sm {% if current_severity == 'MEDIUM' %}btn-info text-dark{% else %}btn-outline-info{% endif %}">MEDIUM</a>
+    <a href="{{ url_for('alerts_view', severity='LOW') }}" class="btn btn-sm {% if current_severity == 'LOW' %}btn-light text-dark{% else %}btn-outline-light{% endif %}">LOW</a>
+</div>
+
+<!-- Alerts Table -->
+<div class="card-cyber p-3">
+    {% if alerts %}
+    <div class="table-responsive">
+        <table class="table table-cyber align-middle mb-0">
+            <thead>
+                <tr class="text-secondary small font-mono border-bottom border-dark-subtle">
+                    <th>SEVERITY</th>
+                    <th>RULE ID</th>
+                    <th>RULE NAME</th>
+                    <th>CATEGORY</th>
+                    <th>SOURCE IP</th>
+                    <th>TARGET</th>
+                    <th>DESCRIPTION</th>
+                    <th>ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr id="alert-row-{{ alert.id }}">
+                    <td>
+                        <span class="badge badge-severity-{{ alert.severity }} font-mono">{{ alert.severity }}</span>
+                    </td>
+                    <td class="font-mono small text-secondary">{{ alert.rule_id }}</td>
+                    <td class="fw-semibold text-light">{{ alert.rule_name }}</td>
+                    <td><span class="badge bg-dark border border-secondary">{{ alert.category }}</span></td>
+                    <td class="font-mono text-info">{{ alert.src_ip or 'N/A' }}</td>
+                    <td class="font-mono text-light">{{ alert.dst_ip or 'N/A' }}{% if alert.dst_port %}:{{ alert.dst_port }}{% endif %}</td>
+                    <td class="small text-secondary text-truncate" style="max-width: 280px;" title="{{ alert.description }}">
+                        {{ alert.description }}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('investigate_alert', alert_id=alert.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2 font-mono" style="font-size: 0.75rem;">
+                                Investigate
+                            </a>
+                            <button class="btn btn-sm {% if alert.acknowledged %}btn-success{% else %}btn-outline-secondary{% endif %} py-0 px-2 font-mono"
+                                    id="ack-btn-{{ alert.id }}" onclick="toggleAck({{ alert.id }}, {{ 0 if alert.acknowledged else 1 }})" style="font-size: 0.75rem;">
+                                {% if alert.acknowledged %}Ack'd{% else %}Ack{% endif %}
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-secondary">
+        <i class="fa-solid fa-bell-slash fs-2 mb-2 d-block"></i>
+        <p class="mb-0">No alerts match the selected criteria.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleAck(alertId, newStatus) {
+        fetch(`/api/alerts/${alertId}/ack`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acknowledged: newStatus })
+        })
+        .then(res => res.json())
+        .then(data => {
+            const btn = document.getElementById('ack-btn-' + alertId);
+            if (newStatus === 1) {
+                btn.className = "btn btn-sm btn-success py-0 px-2 font-mono";
+                btn.innerText = "Ack'd";
+                btn.setAttribute("onclick", `toggleAck(${alertId}, 0)`);
+            } else {
+                btn.className = "btn btn-sm btn-outline-secondary py-0 px-2 font-mono";
+                btn.innerText = "Ack";
+                btn.setAttribute("onclick", `toggleAck(${alertId}, 1)`);
+            }
+        });
+    }
+</script>
+{% endblock %}

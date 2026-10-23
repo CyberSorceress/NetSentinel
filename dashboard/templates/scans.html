@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Network Reconnaissance & Nmap Hub{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="fa-solid fa-crosshairs text-danger me-2"></i>Network Reconnaissance & Exposure Hub</h3>
+        <p class="text-secondary small mb-0">Authorized host discovery, port scanning, service identification, and vulnerability exposure assessment.</p>
+    </div>
+    <div>
+        <span class="badge bg-dark border border-secondary text-info font-mono p-2">
+            <i class="fa-solid fa-terminal me-1"></i> Engine: {{ nmap_status }}
+        </span>
+    </div>
+</div>
+
+<!-- Scan Configuration Form -->
+<div class="card-cyber p-4 mb-4">
+    <h6 class="fw-bold text-uppercase text-secondary font-mono small mb-3">Launch Authorized Network Scan</h6>
+    <form method="POST" action="{{ url_for('scans_view') }}">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label small font-mono">Target Host / Subnet</label>
+                <input type="text" class="form-control form-control-sm bg-dark border-secondary text-light font-mono" name="target" value="127.0.0.1" placeholder="e.g. 127.0.0.1 or 192.168.1.1" required>
+                <div class="form-text text-secondary small">Only scan targets you own or have explicit authorization to audit.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small font-mono">Scan Profile</label>
+                <select name="scan_type" class="form-select form-select-sm bg-dark border-secondary text-light">
+                    <option value="quick" selected>Quick Top Ports (-F)</option>
+                    <option value="service">Service & Version Detection (-sV)</option>
+                    <option value="syn">TCP SYN / Connect Scan (-sT)</option>
+                    <option value="full">Standard 1-1000 Ports (-p 1-1000)</option>
+                    <option value="ping">Host Discovery Ping Sweep (-sn)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small font-mono">Custom Ports (Optional)</label>
+                <input type="text" class="form-control form-control-sm bg-dark border-secondary text-light font-mono" name="ports" placeholder="e.g. 21,22,80,443,3389">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-sm btn-primary w-100 font-mono">
+                    <i class="fa-solid fa-play me-1"></i> Start Scan
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Scan History & Exposure Results -->
+<div class="card-cyber p-3">
+    <h6 class="fw-bold text-uppercase text-secondary font-mono small mb-3"><i class="fa-solid fa-clock-rotate-left me-1"></i> Scan History & Exposure Reports</h6>
+    {% if scans %}
+        {% for scan in scans %}
+        <div class="border border-dark-subtle rounded p-3 mb-3 bg-dark">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                <div>
+                    <span class="badge bg-primary font-mono me-2">{{ scan.scan_type | upper }}</span>
+                    <strong class="font-mono text-light fs-6">{{ scan.target }}</strong>
+                    <span class="text-secondary small ms-2 font-mono">@ {{ scan.timestamp | round(0) }}</span>
+                </div>
+                <div>
+                    <span class="badge bg-secondary font-mono">{{ scan.open_ports_count }} Open Ports</span>
+                    <span class="badge bg-success font-mono ms-1">{{ scan.status }}</span>
+                </div>
+            </div>
+
+            <!-- Exposed Ports Details -->
+            {% if scan.results and scan.results.hosts %}
+                {% for host in scan.results.hosts %}
+                    {% if host.ports %}
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-cyber font-mono align-middle" style="font-size: 0.78rem;">
+                            <thead>
+                                <tr class="text-secondary">
+                                    <th>PORT</th>
+                                    <th>STATE</th>
+                                    <th>SERVICE</th>
+                                    <th>PRODUCT / VERSION</th>
+                                    <th>EXPOSURE RISK</th>
+                                    <th>SECURITY REMEDIATION</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in host.ports %}
+                                <tr>
+                                    <td class="text-info fw-bold">{{ p.port }}/{{ p.protocol }}</td>
+                                    <td><span class="badge bg-success-subtle text-success">{{ p.state }}</span></td>
+                                    <td class="text-light">{{ p.service }}</td>
+                                    <td class="text-secondary">{{ p.product }} {{ p.version }}</td>
+                                    <td>
+                                        <span class="badge badge-severity-{{ p.risk_level }}">{{ p.risk_level }}</span>
+                                    </td>
+                                    <td class="text-secondary">{{ p.remediation }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="small text-secondary mt-2">No open exposed ports discovered on host {{ host.ip }}.</div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="text-center py-4 text-secondary">
+        <i class="fa-solid fa-radar fs-2 mb-2 d-block"></i>
+        <p class="mb-0">No reconnaissance scans recorded yet. Enter a target above to audit exposed services.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

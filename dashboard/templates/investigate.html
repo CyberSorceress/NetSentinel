@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Incident Investigation #{{ alert.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('alerts_view') }}" class="btn btn-sm btn-outline-secondary font-mono">&larr; Back to Alerts</a>
+            <h3 class="fw-bold mb-0"><i class="fa-solid fa-magnifying-glass-chart text-primary me-2"></i>Forensic Incident Investigation</h3>
+        </div>
+        <p class="text-secondary small mb-0 mt-1">Trace security alerts down to packet headers, TCP state transitions, and flow anomalies.</p>
+    </div>
+    <div>
+        <span class="badge badge-severity-{{ alert.severity }} fs-6 font-mono px-3 py-2">{{ alert.severity }} SEVERITY</span>
+    </div>
+</div>
+
+<!-- Alert Dossier Card -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="card-cyber p-4 h-100">
+            <h5 class="fw-bold text-light mb-1">{{ alert.rule_name }}</h5>
+            <div class="d-flex gap-2 my-2 font-mono small">
+                <span class="badge bg-dark border border-secondary text-info">Rule: {{ alert.rule_id }}</span>
+                <span class="badge bg-dark border border-secondary text-warning">Category: {{ alert.category }}</span>
+                <span class="badge bg-dark border border-secondary text-secondary">Protocol: {{ alert.protocol }}</span>
+            </div>
+            <p class="text-secondary mt-2 mb-3">{{ alert.description }}</p>
+
+            <h6 class="text-uppercase text-secondary font-mono small fw-bold">Incident Evidence Data</h6>
+            <pre class="bg-black p-3 rounded text-info font-mono small border border-secondary mb-0" style="max-height: 200px; overflow-y: auto;">{{ alert.evidence_obj | tojson(indent=2) }}</pre>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card-cyber p-4 h-100">
+            <h6 class="text-uppercase text-secondary font-mono small fw-bold mb-3"><i class="fa-solid fa-shield-virus me-1 text-danger"></i> MITRE ATT&CK Context</h6>
+            {% if alert.evidence_obj and alert.evidence_obj.mitre %}
+            <div class="p-3 rounded bg-dark border border-danger mb-3 font-mono">
+                <div class="text-danger fw-bold small">TECHNIQUE ID</div>
+                <div class="fs-5 text-light fw-bold">{{ alert.evidence_obj.mitre }}</div>
+                <div class="small text-secondary mt-1">Enterprise Matrix</div>
+            </div>
+            {% else %}
+            <div class="p-3 rounded bg-dark border border-secondary mb-3 font-mono small text-secondary">
+                Technique: T1046 (Network Service Discovery) / T1498 (Network Denial of Service)
+            </div>
+            {% endif %}
+
+            <h6 class="text-uppercase text-secondary font-mono small fw-bold mb-2">Endpoint Coordinates</h6>
+            <ul class="list-unstyled font-mono small text-secondary mb-0">
+                <li class="mb-1"><span class="text-light">Source:</span> <span class="text-info">{{ alert.src_ip or 'N/A' }}</span>:{{ alert.src_port or '*' }}</li>
+                <li class="mb-1"><span class="text-light">Destination:</span> <span class="text-light">{{ alert.dst_ip or 'N/A' }}</span>:{{ alert.dst_port or '*' }}</li>
+                <li><span class="text-light">Detected At:</span> {{ alert.timestamp | round(3) }}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Correlated Packets View -->
+<div class="card-cyber p-3">
+    <h6 class="fw-bold text-uppercase text-secondary font-mono small mb-3">
+        <i class="fa-solid fa-link me-1 text-primary"></i> Correlated Forensic Packet Trace (Host: {{ alert.src_ip }})
+    </h6>
+
+    {% if related_packets %}
+    <div class="table-responsive">
+        <table class="table table-cyber table-sm align-middle mb-0 font-mono" style="font-size: 0.8rem;">
+            <thead>
+                <tr class="text-secondary border-bottom border-dark-subtle">
+                    <th>FRAME</th>
+                    <th>TIMESTAMP</th>
+                    <th>SOURCE</th>
+                    <th>DESTINATION</th>
+                    <th>PROTO</th>
+                    <th>LEN</th>
+                    <th>FLAGS</th>
+                    <th>INFO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pkt in related_packets %}
+                <tr>
+                    <td class="text-secondary">#{{ pkt.frame_num or pkt.id }}</td>
+                    <td class="text-secondary">{{ "%.3f"|format(pkt.timestamp) }}</td>
+                    <td class="text-info">{{ pkt.src_ip }}{% if pkt.src_port %}:{{ pkt.src_port }}{% endif %}</td>
+                    <td class="text-light">{{ pkt.dst_ip }}{% if pkt.dst_port %}:{{ pkt.dst_port }}{% endif %}</td>
+                    <td><span class="badge bg-secondary">{{ pkt.protocol }}</span></td>
+                    <td>{{ pkt.length }} B</td>
+                    <td><span class="text-warning fw-bold">{{ pkt.flags or '-' }}</span></td>
+                    <td class="text-truncate text-light" style="max-width: 340px;">{{ pkt.info }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="small text-secondary py-3">No matching individual packet records found for this endpoint.</div>
+    {% endif %}
+</div>
+{% endblock %}

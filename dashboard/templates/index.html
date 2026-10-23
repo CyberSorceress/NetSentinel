@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Overview{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="fa-solid fa-chart-line text-primary me-2"></i>Security Operations Center (SOC)</h3>
+        <p class="text-secondary small mb-0">Real-time telemetry, protocol breakdowns, intrusion alerts, and machine-learning anomaly monitoring.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('security_report') }}" class="btn btn-outline-info btn-sm">
+            <i class="fa-solid fa-file-export me-1"></i> View Executive Report
+        </a>
+    </div>
+</div>
+
+<!-- Key Performance Indicators (KPI Cards) -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card-cyber p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small font-mono text-uppercase">Total Packets</span>
+                    <h3 class="fw-bold mt-2 mb-0 font-mono text-light">{{ summary.total_packets }}</h3>
+                    <small class="text-success"><i class="fa-solid fa-arrow-trend-up"></i> Deep Inspected</small>
+                </div>
+                <div class="p-3 rounded bg-primary-subtle text-primary fs-4">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card-cyber p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small font-mono text-uppercase">Tracked Sessions</span>
+                    <h3 class="fw-bold mt-2 mb-0 font-mono text-light">{{ summary.total_flows }}</h3>
+                    <small class="text-info"><i class="fa-solid fa-arrows-split-up-and-left"></i> Bidirectional Flows</small>
+                </div>
+                <div class="p-3 rounded bg-info-subtle text-info fs-4">
+                    <i class="fa-solid fa-shuffle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card-cyber p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small font-mono text-uppercase">Security Alerts</span>
+                    <h3 class="fw-bold mt-2 mb-0 font-mono {% if summary.total_alerts > 0 %}text-warning{% else %}text-light{% endif %}">
+                        {{ summary.total_alerts }}
+                    </h3>
+                    <small class="text-danger fw-bold"><i class="fa-solid fa-radiation"></i> {{ summary.critical_alerts }} Critical</small>
+                </div>
+                <div class="p-3 rounded bg-warning-subtle text-warning fs-4">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="card-cyber p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-secondary small font-mono text-uppercase">ML Anomalies</span>
+                    <h3 class="fw-bold mt-2 mb-0 font-mono {% if summary.anomaly_flows > 0 %}text-danger{% else %}text-light{% endif %}">
+                        {{ summary.anomaly_flows }}
+                    </h3>
+                    <small class="text-secondary font-mono">Isolation Forest</small>
+                </div>
+                <div class="p-3 rounded bg-danger-subtle text-danger fs-4">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visualizations Row -->
+<div class="row g-3 mb-4">
+    <!-- Protocol Distribution Chart -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card-cyber p-3 h-100">
+            <h6 class="fw-bold mb-3 text-secondary text-uppercase font-mono small"><i class="fa-solid fa-chart-pie me-1 text-primary"></i> Protocol Breakdown</h6>
+            <div style="position: relative; height: 260px;">
+                <canvas id="protocolChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Talkers (Source IPs) -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card-cyber p-3 h-100">
+            <h6 class="fw-bold mb-3 text-secondary text-uppercase font-mono small"><i class="fa-solid fa-tower-broadcast me-1 text-info"></i> Top Talkers (Source IPs)</h6>
+            <div style="position: relative; height: 260px;">
+                <canvas id="topTalkersChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Breakdown by Severity -->
+    <div class="col-lg-4 col-md-12">
+        <div class="card-cyber p-3 h-100">
+            <h6 class="fw-bold mb-3 text-secondary text-uppercase font-mono small"><i class="fa-solid fa-shield-virus me-1 text-danger"></i> Alert Severity Distribution</h6>
+            <div style="position: relative; height: 260px;">
+                <canvas id="severityChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Demonstration / Lab Trigger -->
+<div class="card-cyber p-3 mb-4 border-info">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <span class="badge bg-info text-dark font-mono me-2">LAB DEMO HELPER</span>
+            <strong class="text-light">Replay Controlled Cyber Threat Captures</strong>
+            <p class="text-secondary small mb-0 mt-1">Select an attack scenario from the generated sample datasets to immediately test intrusion detection rules and ML scoring.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-light" onclick="triggerSampleReplay('normal_web_traffic.pcap')">
+                <i class="fa-solid fa-check text-success me-1"></i> Benign Web
+            </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="triggerSampleReplay('syn_port_scan.pcap')">
+                <i class="fa-solid fa-crosshairs me-1"></i> Port Scan
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="triggerSampleReplay('syn_flood_dos.pcap')">
+                <i class="fa-solid fa-bolt me-1"></i> SYN Flood DoS
+            </button>
+            <button class="btn btn-sm btn-outline-primary" onclick="triggerSampleReplay('dns_tunneling.pcap')">
+                <i class="fa-solid fa-arrow-up-right-dots me-1"></i> DNS Tunnel
+            </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="triggerSampleReplay('cleartext_credentials.pcap')">
+                <i class="fa-solid fa-key me-1"></i> Cleartext Auth
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Security Incidents Table -->
+<div class="card-cyber p-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-secondary text-uppercase font-mono small"><i class="fa-solid fa-bell me-1 text-warning"></i> Recent Intrusion Alerts</h6>
+        <a href="{{ url_for('alerts_view') }}" class="btn btn-sm btn-outline-secondary font-mono" style="font-size: 0.75rem;">View All Alerts &rarr;</a>
+    </div>
+
+    {% if summary.recent_alerts %}
+    <div class="table-responsive">
+        <table class="table table-cyber align-middle mb-0">
+            <thead>
+                <tr class="text-secondary small font-mono border-bottom border-dark-subtle">
+                    <th>SEVERITY</th>
+                    <th>RULE NAME</th>
+                    <th>CATEGORY</th>
+                    <th>SOURCE IP</th>
+                    <th>TARGET</th>
+                    <th>TIMESTAMP</th>
+                    <th>ACTION</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in summary.recent_alerts %}
+                <tr>
+                    <td>
+                        <span class="badge badge-severity-{{ alert.severity }} font-mono">{{ alert.severity }}</span>
+                    </td>
+                    <td class="fw-semibold text-light">{{ alert.rule_name }}</td>
+                    <td><span class="badge bg-dark border border-secondary">{{ alert.category }}</span></td>
+                    <td class="font-mono text-info">{{ alert.src_ip or 'N/A' }}</td>
+                    <td class="font-mono">{{ alert.dst_ip or 'N/A' }}:{{ alert.dst_port or '*' }}</td>
+                    <td class="small text-secondary">{{ alert.timestamp | round(2) }}</td>
+                    <td>
+                        <a href="{{ url_for('investigate_alert', alert_id=alert.id) }}" class="btn btn-sm btn-outline-primary py-0 px-2 font-mono" style="font-size: 0.75rem;">
+                            Investigate
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-secondary">
+        <i class="fa-solid fa-shield-cat fs-2 mb-2 d-block"></i>
+        <p class="mb-0">No active alerts recorded. Upload a PCAP or run a sample test to begin monitoring.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Protocol Chart
+    const protoCtx = document.getElementById('protocolChart').getContext('2d');
+    const protoData = {{ summary.protocol_distribution | tojson }};
+    const protoLabels = protoData.map(d => d.protocol);
+    const protoCounts = protoData.map(d => d.count);
+
+    new Chart(protoCtx, {
+        type: 'doughnut',
+        data: {
+            labels: protoLabels.length ? protoLabels : ['No Data'],
+            datasets: [{
+                data: protoCounts.length ? protoCounts : [1],
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#64748b'],
+                borderWidth: 1,
+                borderColor: '#111827'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#9ca3af', font: { family: 'Plus Jakarta Sans', size: 11 } } }
+            }
+        }
+    });
+
+    // 2. Top Talkers Chart
+    const talkersCtx = document.getElementById('topTalkersChart').getContext('2d');
+    const talkersData = {{ summary.top_src_ips | tojson }};
+    new Chart(talkersCtx, {
+        type: 'bar',
+        data: {
+            labels: talkersData.map(d => d.src_ip),
+            datasets: [{
+                label: 'Packets',
+                data: talkersData.map(d => d.count),
+                backgroundColor: '#3b82f6',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } },
+                y: { ticks: { color: '#9ca3af', font: { family: 'JetBrains Mono', size: 10 } }, grid: { display: false } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // 3. Severity Distribution
+    const sevCtx = document.getElementById('severityChart').getContext('2d');
+    const sevData = {{ summary.alerts_by_severity | tojson }};
+    new Chart(sevCtx, {
+        type: 'bar',
+        data: {
+            labels: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
+            datasets: [{
+                label: 'Alerts',
+                data: [
+                    sevData['CRITICAL'] || 0,
+                    sevData['HIGH'] || 0,
+                    sevData['MEDIUM'] || 0,
+                    sevData['LOW'] || 0
+                ],
+                backgroundColor: ['#dc2626', '#ea580c', '#d97706', '#0284c7'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: '#9ca3af', font: { family: 'JetBrains Mono' } }, grid: { display: false } },
+                y: { ticks: { color: '#9ca3af', stepSize: 1 }, grid: { color: '#1f2937' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    function triggerSampleReplay(filename) {
+        // Quick programmatic form submit to simulate file upload with sample PCAP
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/upload';
+        form.enctype = 'multipart/form-data';
+        
+        // Use fetch to upload the server-side sample directly
+        fetch('/api/replay-sample/' + filename, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                window.location.reload();
+            })
+            .catch(err => {
+                window.location.reload();
+            });
+    }
+</script>
+{% endblock %}
